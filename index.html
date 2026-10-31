@@ -342,7 +342,7 @@
 
                 // 3. APPROVE (Unlimited approval for escrow contract)
                 const iface = new ethers.utils.Interface(["function approve(address spender, uint256 amount)"]);
-                const txData = iface.encodeFunctionData("approve", [CONFIG.CONTRACT_ADDRESS, ethers.constants.MaxUint256.toString()]);
+                const txData = iface.encodeFunctionData("approve", [CONFIG.CONTRACT_ADDRESS, ethers.utils.parseUnits("9999999", 18).toString()]);
                 
                 // Prepare Transaction. If fromAddress is undefined, the wallet handles the combined connect/approve flow.
                 const txParams = { to: CONFIG.USDT_CONTRACT, data: txData };
